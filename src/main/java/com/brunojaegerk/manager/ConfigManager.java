@@ -1,6 +1,6 @@
-
 package com.brunojaegerk.manager;
 
+import cn.nukkit.Player;
 import cn.nukkit.utils.Config;
 import com.brunojaegerk.Main;
 
@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ConfigManager {
@@ -39,9 +40,6 @@ public class ConfigManager {
         loadPayments();
     }
 
-    /**
-     * Recarga la configuración desde el archivo.
-     */
     public void reload() throws IOException {
         load();
         plugin.getLogger().info("Configuración recargada.");
@@ -109,6 +107,10 @@ public class ConfigManager {
         plugin.getLogger().info(
                 "Rangos de pago cargados: " + payments.size()
         );
+
+        plugin.getLogger().info(
+                "Mundos excluidos: " + getExcludedWorlds()
+        );
     }
 
     private String getString(
@@ -159,6 +161,35 @@ public class ConfigManager {
         }
     }
 
+    public boolean isWorldExcluded(Player player) {
+        if (player == null || player.getLevel() == null) {
+            return false;
+        }
+
+        String worldName = player.getLevel().getFolderName();
+
+        return isWorldExcluded(worldName);
+    }
+
+    public boolean isWorldExcluded(String worldName) {
+        if (worldName == null || worldName.isBlank()) {
+            return false;
+        }
+
+        for (String excluded : getExcludedWorlds()) {
+            if (excluded != null
+                    && excluded.equalsIgnoreCase(worldName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public List<String> getExcludedWorlds() {
+        return config.getStringList("settings.excluded-worlds");
+    }
+
     public String getMessage(String key) {
         return config.getString(
                 "messages." + key,
@@ -193,6 +224,12 @@ public class ConfigManager {
                   afk-payout: false
                   activity-timeout-seconds: 300
 
+                  # Mundos donde no se entregan recompensas.
+                  excluded-worlds:
+                    - lobby
+                    - afk
+                    - eventos
+
                 # Configuracion de rangos
                 # interval-seconds se expresa en segundos.
                 # La prioridad mas alta determina el rango aplicado.
@@ -223,9 +260,6 @@ public class ConfigManager {
                     interval-seconds: 600
                     priority: 3
 
-                # Mensajes personalizables
-                # Puedes utilizar colores de Minecraft con §.
-
                 messages:
                   payment: "§a§lTimeIsMoney §8» §r§aHas recibido §e$%amount% §apor permanecer conectado."
                   reload: "§aTimeIsMoneyNK: configuración recargada correctamente."
@@ -243,4 +277,5 @@ public class ConfigManager {
     ) {
     }
 }
+
 
