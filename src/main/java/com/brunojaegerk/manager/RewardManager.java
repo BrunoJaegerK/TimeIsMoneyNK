@@ -14,19 +14,11 @@ public class RewardManager {
         this.plugin = plugin;
     }
 
-    /**
-     * Entrega la recompensa económica al jugador.
-     */
     public boolean giveReward(
             Player player,
             PaymentManager.RankPayment payment
     ) {
-
-        if (player == null || !player.isOnline()) {
-            return false;
-        }
-
-        if (payment == null) {
+        if (player == null || !player.isOnline() || payment == null) {
             return false;
         }
 
@@ -34,7 +26,8 @@ public class RewardManager {
 
         if (!Double.isFinite(amount) || amount <= 0) {
             plugin.getLogger().warning(
-                    "Se intentó entregar una cantidad inválida."
+                    "Cantidad de recompensa inválida para "
+                            + player.getName()
             );
             return false;
         }
@@ -49,7 +42,28 @@ public class RewardManager {
                 return false;
             }
 
-            economy.addMoney(player, amount);
+            // Comprueba que el jugador tenga una cuenta económica.
+            if (!economy.hasAccount(player)) {
+                plugin.getLogger().warning(
+                        "El jugador " + player.getName()
+                                + " no tenía una cuenta. Intentando crearla."
+                );
+
+                economy.createAccount(player);
+            }
+
+            // Comprueba el resultado real de la operación.
+            int result = economy.addMoney(player, amount);
+
+            if (result != EconomyAPI.RET_SUCCESS) {
+                plugin.getLogger().error(
+                        "EconomyAPI no pudo entregar la recompensa a "
+                                + player.getName()
+                                + ". Código de respuesta: " + result
+                                + ". Cantidad: " + amount
+                );
+                return false;
+            }
 
             String message = plugin.getConfigManager()
                     .getMessage("payment")
@@ -58,10 +72,16 @@ public class RewardManager {
 
             player.sendMessage(message);
 
+            plugin.getLogger().info(
+                    "Recompensa entregada: "
+                            + player.getName()
+                            + " recibió $" + formatAmount(amount)
+                            + " (rango: " + payment.rank() + ")."
+            );
+
             return true;
 
         } catch (Exception exception) {
-
             plugin.getLogger().error(
                     "Error entregando dinero a "
                             + player.getName(),
@@ -72,11 +92,9 @@ public class RewardManager {
         }
     }
 
-    /**
-     * Formatea las cantidades económicas.
-     */
     private String formatAmount(double amount) {
         return String.format(Locale.US, "%,.2f", amount);
     }
 }
+
 

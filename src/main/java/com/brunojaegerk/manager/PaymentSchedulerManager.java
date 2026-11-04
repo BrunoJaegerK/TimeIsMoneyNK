@@ -25,9 +25,6 @@ public class PaymentSchedulerManager {
         this.plugin = plugin;
     }
 
-    /**
-     * Inicia el único temporizador global.
-     */
     public void start() {
 
         if (taskHandler != null) {
@@ -47,9 +44,6 @@ public class PaymentSchedulerManager {
         );
     }
 
-    /**
-     * Detiene el temporizador.
-     */
     public void stop() {
 
         if (taskHandler != null) {
@@ -61,9 +55,6 @@ public class PaymentSchedulerManager {
         lastCheckTime.clear();
     }
 
-    /**
-     * Inicializa el contador de un jugador.
-     */
     public void registerPlayer(Player player) {
 
         if (player == null) {
@@ -77,9 +68,6 @@ public class PaymentSchedulerManager {
         lastCheckTime.put(uuid, now);
     }
 
-    /**
-     * Elimina los datos de un jugador.
-     */
     public void unregisterPlayer(Player player) {
 
         if (player == null) {
@@ -92,9 +80,6 @@ public class PaymentSchedulerManager {
         lastCheckTime.remove(uuid);
     }
 
-    /**
-     * Se ejecuta una vez por segundo.
-     */
     private void tick() {
 
         long now = System.currentTimeMillis();
@@ -113,7 +98,6 @@ public class PaymentSchedulerManager {
             processPlayer(player, now);
         }
 
-        // Limpia registros de jugadores que ya no están conectados.
         accumulatedTime.keySet().removeIf(
                 uuid -> !onlinePlayers.contains(uuid)
         );
@@ -123,9 +107,6 @@ public class PaymentSchedulerManager {
         );
     }
 
-    /**
-     * Procesa el tiempo y los pagos de un jugador.
-     */
     private void processPlayer(Player player, long now) {
 
         UUID uuid = player.getUniqueId();
@@ -139,16 +120,24 @@ public class PaymentSchedulerManager {
 
         long elapsed = Math.max(0L, now - previousTime);
 
-        // El tiempo AFK no se acumula si está deshabilitado
-        // el pago para jugadores AFK.
-        if (plugin.getAfkManager().canReceivePayment(player)) {
-
-            accumulatedTime.merge(
-                    uuid,
-                    elapsed,
-                    Long::sum
-            );
+        // Los mundos excluidos no generan tiempo ni recompensas.
+        // lastCheckTime ya se actualizó para evitar contar
+        // el tiempo pasado en el mundo excluido al salir.
+        if (plugin.getConfigManager().isWorldExcluded(player)) {
+            return;
         }
+
+        // Si el jugador no puede recibir pagos por estar AFK,
+        // tampoco se acumula tiempo ni se procesa un pago pendiente.
+        if (!plugin.getAfkManager().canReceivePayment(player)) {
+            return;
+        }
+
+        accumulatedTime.merge(
+                uuid,
+                elapsed,
+                Long::sum
+        );
 
         PaymentManager.RankPayment payment =
                 plugin.getPaymentManager().getPaymentFor(player);
@@ -171,8 +160,7 @@ public class PaymentSchedulerManager {
             return;
         }
 
-        // Solo se intenta entregar una recompensa por revisión.
-        // Si falla, el tiempo no se descuenta y se reintentará.
+        // Solo se descuenta el tiempo si EconomyAPI confirma el pago.
         if (plugin.getRewardManager().giveReward(player, payment)) {
 
             accumulatedTime.put(
@@ -182,9 +170,6 @@ public class PaymentSchedulerManager {
         }
     }
 
-    /**
-     * Consulta el tiempo acumulado de un jugador.
-     */
     public long getAccumulatedSeconds(Player player) {
 
         if (player == null) {
@@ -197,4 +182,5 @@ public class PaymentSchedulerManager {
         ) / 1000L;
     }
 }
+
 
